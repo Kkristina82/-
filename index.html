@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; }
+        .product { border: 1px solid #ff004d; margin: 15px; padding: 10px; border-radius: 10px; background: #111; }
+        button { background: #ff004d; color: #fff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        h2 { color: #ff004d; }
+    </style>
+</head>
+<body>
+    <h2>RK Perfume Store</h2>
+    
+    <div class="product">
+        <img src="https://via.placeholder.com/100" alt="Perfume">
+        <h3>Aromatic Red</h3>
+        <p>Ціна: 1500 грн</p>
+        <button onclick="order('Aromatic Red - 1500 грн')">Замовити</button>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+
+        function order(details) {
+            tg.sendData(details); // Відправляє дані боту
+            tg.close();
+        }
+    </script>
+</body>
+</html>
