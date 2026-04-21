@@ -42,7 +42,7 @@ async def start(message: types.Message):
     })
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛍 Магазин", web_app=WebAppInfo(url="ТВОЄ_ПОСИЛАННЯ_НА_САЙТ"))],
+        [InlineKeyboardButton(text="🛍 Магазин", web_app=WebAppInfo(url="https://rk-perfume-krop-g4po.vercel.app/"))],
         [InlineKeyboardButton(text="📸 Instagram", url="https://instagram.com/rk.perfume.krop")]
     ])
     await message.answer("✨ **RK Perfume**\nОбирайте аромат у нашому Mini App:", reply_markup=kb)
