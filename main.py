@@ -6,14 +6,16 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import firebase_admin
 from firebase_admin import credentials, db
+import os
 
-# --- НАЛАШТУВАННЯ ---
+# --- КОНФІГУРАЦІЯ ---
 BOT_TOKEN = "8712898544:AAGLysJP0M_TAnllYe4Ib_qITapDUYFfC6Q"
 OWNER_ID = 7443699603
 DATABASE_URL = "https://rkbot-db5d6-default-rtdb.firebaseio.com/"
-CARD_DETAILS = "4441 1111 2222 3333 (Monobank)" # Твоя карта
+CARD_DETAILS = "4441 1111 2222 3333 (Monobank)" 
 
-# --- FIREBASE ---
+# --- FIREBASE ІНІЦІАЛІЗАЦІЯ ---
+# Використовуємо твій вшитий ключ, щоб не було помилок з файлом
 cred_dict = {
   "type": "service_account",
   "project_id": "rkbot-db5d6",
@@ -31,65 +33,57 @@ dp = Dispatcher()
 class ShopState(StatesGroup):
     waiting_receipt = State()
 
-# --- HANDLERS ---
-
-@dp.message(F.text == "/start")
+@dp.message(Command(commands=["start"]))
 async def start(message: types.Message):
-    # Реєстрація в БД
+    # Зберігаємо юзера в БД
     db.reference(f'users/{message.from_user.id}').update({
         'name': message.from_user.full_name,
         'username': message.from_user.username
     })
     
+    # Твоє посилання на сайт (Render автоматично підхопить назву rk-perfume)
+    web_url = os.getenv("WEB_URL", "https://rk-perfume.onrender.com")
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛍 Магазин", web_app=WebAppInfo(url="https://rk-perfume-krop-g4po.vercel.app/"))],
+        [InlineKeyboardButton(text="🛍 Відкрити Магазин", web_app=WebAppInfo(url=web_url))],
         [InlineKeyboardButton(text="📸 Instagram", url="https://instagram.com/rk.perfume.krop")]
     ])
-    await message.answer("✨ **RK Perfume**\nОбирайте аромат у нашому Mini App:", reply_markup=kb)
+    await message.answer("✨ **RK Perfume**\nВітаємо! Тисни на кнопку нижче, щоб обрати свій аромат:", reply_markup=kb)
 
 @dp.message(F.web_app_data)
 async def get_order(message: types.Message, state: FSMContext):
     order_data = message.web_app_data.data
     await state.update_data(current_order=order_data)
-    
-    await message.answer(
-        f"💳 **До сплати:** {order_data}\n\nРеквізити: `{CARD_DETAILS}`\n\n"
-        "Будь ласка, скиньте **скріншот чека** сюди.",
-        parse_mode="Markdown"
-    )
+    await message.answer(f"💳 **Сума до сплати:** {order_data}\n\nРеквізити: `{CARD_DETAILS}`\n\nНадішліть скріншот оплати.")
     await state.set_state(ShopState.waiting_receipt)
 
 @dp.message(ShopState.waiting_receipt, F.photo)
 async def send_to_admin(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    
     admin_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Підтвердити", callback_data=f"ok_{message.from_user.id}"),
-         InlineKeyboardButton(text="❌ Відмовити", callback_data=f"no_{message.from_user.id}")]
+        [InlineKeyboardButton(text="✅ Ок", callback_data=f"ok_{message.from_user.id}"),
+         InlineKeyboardButton(text="❌ Ні", callback_data=f"no_{message.from_user.id}")]
     ])
-    
-    await bot.send_photo(
-        OWNER_ID, 
-        photo=message.photo[-1].file_id,
-        caption=f"💰 **Новий чек!**\nКлієнт: @{message.from_user.username}\nЗамовлення: {data['current_order']}",
-        reply_markup=admin_kb
-    )
-    await message.answer("⏳ Чек відправлено на перевірку. Очікуйте.")
+    await bot.send_photo(OWNER_ID, photo=message.photo[-1].file_id, 
+                         caption=f"💰 Новий чек від @{message.from_user.username}\nЗамовлення: {data['current_order']}", 
+                         reply_markup=admin_kb)
+    await message.answer("⏳ Чек на перевірці. Очікуйте.")
     await state.clear()
 
 @dp.callback_query(F.data.startswith("ok_"))
 async def order_ok(callback: types.CallbackQuery):
     uid = callback.data.split("_")[1]
-    await bot.send_message(uid, "🎉 **Оплату підтверджено!** Скоро відправимо.")
-    await callback.message.edit_caption(caption=callback.message.caption + "\n\n✅ СХВАЛЕНО")
+    await bot.send_message(uid, "🎉 Оплату підтверджено! Готуємо до відправки.")
+    await callback.message.edit_caption(caption=callback.message.caption + "\n\n✅ ПІДТВЕРДЖЕНО")
 
 @dp.callback_query(F.data.startswith("no_"))
 async def order_no(callback: types.CallbackQuery):
     uid = callback.data.split("_")[1]
-    await bot.send_message(uid, "❌ **Чек відхилено.** Зв'яжіться з адміном.")
-    await callback.message.edit_caption(caption=callback.message.caption + "\n\n❌ ВІДКИНУТО")
+    await bot.send_message(uid, "❌ Чек відхилено. Зв'яжіться з адміном.")
+    await callback.message.edit_caption(caption=callback.message.caption + "\n\n❌ ВІДХИЛЕНО")
 
 async def main():
+    logging.basicConfig(level=logging.INFO)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
